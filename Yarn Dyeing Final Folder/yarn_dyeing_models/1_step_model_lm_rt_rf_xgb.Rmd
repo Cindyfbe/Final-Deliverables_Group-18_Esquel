@@ -1,0 +1,291 @@
+---
+title: "1_step_model"
+author: "Zhao Yuedian"
+date: "2021/7/5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(MASS)
+library(Metrics)
+library(randomForest)
+library(ROCR)
+library(fitdistrplus)
+```
+
+```{r}
+my_data <- read_excel("Yarn Dyeing Data analysis_0616_v2.xlsx")
+```
+
+```{r}
+class(my_data)  
+str(my_data) # make sure the variables are correctly defined.
+summary(my_data) # a quick summary of each variable
+```
+
+```{r}
+my_data_1 <- my_data[, c(1,2,3,6,8:24,26,27,28,30)]
+#my_data_1 <- my_data
+#my_data_2 = my_data_1 %>% drop_na()  # 删除NA会筛走很多缺失部分流程的生产任务
+str(my_data_1)
+```
+
+```{r}
+my_data_1$Machine_Name <- as.factor(my_data_1$Machine_Name)
+my_data_1$Batch_Type <- as.factor(my_data_1$Batch_Type)
+my_data_1$Colorist <- as.factor(my_data_1$Colorist)
+my_data_1$Remark_label <- as.factor(my_data_1$Remark_label)
+my_data_1$ColorOnly <- as.factor(my_data_1$ColorOnly)
+my_data_1$Colorist_Type <- as.factor(my_data_1$Colorist_Type)
+my_data_1$Pre_Art_No <- as.factor(my_data_1$Pre_Art_No)
+my_data_1$Dye_Art_No <- as.factor(my_data_1$Dye_Art_No)
+my_data_1$After_Art_No <- as.factor(my_data_1$After_Art_No)
+my_data_1$Fix_Art_No <- as.factor(my_data_1$Fix_Art_No)
+my_data_1$Fabric <- as.factor(my_data_1$Fabric)
+my_data_1$Is_Repair <- as.factor(my_data_1$Is_Repair)
+#str(my_data_1)
+
+library(data.table)
+# replace all NA in character column to 0
+factor_cols = c("Machine_Name", "Batch_Type", "Colorist", "Remark_label", "ColorOnly", "Colorist_Type", "Pre_Art_No", "Dye_Art_No", "After_Art_No", "Fix_Art_No","Fabric","Is_Repair")
+for (col in factor_cols) set(my_data_1, which(is.na(my_data_1[[col]])), col, "0")
+
+# replace all NA in numeric columns to 0
+num_cols = c("Pre_Art_Actual_Time", "Dye_Art_Actual_Time", "Dye_Art_Sample_Time", "After_Art_Actual_Time", "After_Art_Sample_Time", "Fix_Art_Actual_Time", "Fix_Art_Sample_Time")
+for (col in num_cols) set(my_data_1, which(is.na(my_data_1[[col]])), col, 0)
+
+my_data_2 <- my_data_1
+my_data_2$pure_dye <- my_data_2$Dye_Art_Actual_Time - my_data_2$Dye_Art_Sample_Time
+my_data_2$pure_after <- my_data_2$After_Art_Actual_Time - my_data_2$After_Art_Sample_Time
+my_data_2$pure_fix <- my_data_2$Fix_Art_Actual_Time - my_data_2$Fix_Art_Sample_Time
+str(my_data_2)
+```
+
+```{r}
+#arrange(count(my_data_1, "Machine_Name"), desc(freq))
+#arrange(count(my_data_1, "Colorist"), desc(freq))
+#arrange(count(my_data_1, "Pre_Art_No"), desc(freq))
+#arrange(count(my_data_1, "After_Art_No"), desc(freq))
+```
+
+
+
+
+# Create train/test sets
+
+
+```{r}
+set.seed(123)
+smp_siz = floor(0.95*nrow(my_data_2)) 
+train_ind = sample(seq_len(nrow(my_data_2)),size = smp_siz)  # Randomly identifies therows equal to sample size ( defined in previous instruction) from  all the rows of Smarket dataset and stores the row number in train_ind
+data_train= my_data_2[train_ind,] #creates the training dataset with row numbers stored in train_ind
+data_test = my_data_2[-train_ind,]  # creates the test dataset excluding the row numbers mentioned in train_ind
+```
+
+```{r}
+my_data_3 <- data_test
+```
+# Linear regression
+```{r}
+lm_whole <- lm(Total_Actual_Time ~ pred_lm_s1 + pred_lm_s2 + pred_lm_s3 + pred_lm_s4 + pred_lm_s5 + pred_lm_s6 + pred_lm_s7, data = data_train)
+# summary(lm_s6)
+```
+
+
+```{r}
+my_data_3$pred_lm_whole <- predict(lm_whole, newdata = my_data_3)
+
+
+rmse_lm_whole <- rmse(my_data_3$pred_lm_whole, my_data_3$Total_Actual_Time)
+mape(my_data_3$pred_lm_whole, my_data_3$Total_Actual_Time)
+residuals_lm_whole = my_data_3$Total_Actual_Time - my_data_3$pred_lm_whole
+new_res <- residuals_lm_whole - mean(residuals_lm_whole)
+length(new_res[new_res<90&new_res>-90])/length(new_res)
+length(new_res[new_res<30&new_res>-30])/length(new_res)
+```
+
+# Regression tree
+
+```{r}
+reg.tree_whole <- rpart(Total_Actual_Time ~ pred_rt_s1 + pred_rt_s2 + pred_rt_s3 + pred_rt_s4 + pred_rt_s5 + pred_rt_s6 + pred_rt_s7, data = data_train)
+summary(reg.tree_whole)
+
+#rpart.plot(reg.tree_s7, type = 4, tweak = 1)
+
+reg.tree_whole$variable.importance
+
+printcp(reg.tree_whole)  # displays table of fits across complexity parameter values
+
+#rsq.rpart(reg.tree_s7)  # plots approximate R-squared and relative error for different splits
+```
+
+
+```{r}
+my_data_3$pred_rt_whole <- predict(reg.tree_whole, newdata = my_data_3)
+
+rmse_rt_whole <- rmse(my_data_3$pred_rt_whole, my_data_3$Total_Actual_Time)
+mape(my_data_3$pred_rt_whole, my_data_3$Total_Actual_Time)
+residuals_rt_whole = my_data_3$Total_Actual_Time - my_data_3$pred_rt_whole
+new_res <- residuals_rt_whole - mean(residuals_rt_whole)
+length(new_res[new_res<90&new_res>-90])/length(new_res)
+length(new_res[new_res<30&new_res>-30])/length(new_res)
+```
+
+# Random Forest
+
+```{r}
+my_data_2.rf_whole <- randomForest(Total_Actual_Time ~ pred_rf_s1 + pred_rf_s2 + pred_rf_s3 + pred_rf_s4 + pred_rf_s5 + pred_rf_s6 + pred_rf_s7 , data = data_train, ntree = 1000, na.action=na.roughfix) 
+
+```
+
+```{r}
+my_data_3$pred_rf_whole <- predict(my_data_2.rf_whole, newdata = my_data_3)
+
+rmse_rf_whole <- rmse(my_data_3$pred_rf_whole, my_data_3$Total_Actual_Time)
+mape(my_data_3$pred_rf_whole, my_data_3$Total_Actual_Time)
+residuals_rf_whole = my_data_3$Total_Actual_Time - my_data_3$pred_rf_whole
+new_res <- residuals_rf_whole - mean(residuals_rf_whole)
+length(new_res[new_res<90&new_res>-90])/length(new_res)
+length(new_res[new_res<60&new_res>-60])/length(new_res)
+length(new_res[new_res<30&new_res>-30])/length(new_res)
+```
+
+# XGBoost
+
+```{r}
+library(xgboost)
+library(caret)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(Metrics)
+library(data.table)
+```
+
+
+```{r}
+my_data_4 <- read_excel("my_data_dummies.xlsx")
+```
+
+
+```{r}
+my_data_4$DyestuffUsage <- as.numeric(my_data_4$DyestuffUsage)
+num_cols = c("Pre_Art_Actual_Time", "Dye_Art_Actual_Time", "Dye_Art_Sample_Time", "After_Art_Actual_Time", "After_Art_Sample_Time", "Fix_Art_Actual_Time", "Fix_Art_Sample_Time", "DyestuffUsage", "Dyeing_Ratio","Dye_weight","pure_dye","pure_after","pure_fix")
+for (col in num_cols) set(my_data_4, which(is.na(my_data_4[[col]])), col, 0)
+```
+
+```{r}
+set.seed(123)
+indices <- sample(1:nrow(my_data_4), size = 0.95 * nrow(my_data_4))
+train <- as.matrix(my_data_4[indices,])
+test <- as.matrix(my_data_4[-indices,])
+```
+
+```{r}
+whole_xgb <-
+  xgboost(
+    data = train[, 2:223],
+    label = train[, 231],
+    nrounds = 1000,
+    objective = "reg:squarederror",
+    early_stopping_rounds = 3,
+    max_depth = 6,
+    eta = .25
+  )
+```
+
+```{r}
+whole_pred_xgb <- predict(whole_xgb, test[, 2:223])
+whole_yhat <- whole_pred_xgb
+whole_y <- test[, 231]
+postResample(whole_yhat, whole_y)
+
+whole_r <- whole_y - whole_yhat
+hist(whole_r)
+
+#  RMSE    Rsquared         MAE 
+#111.6642199   0.8747199  81.6256648 
+```
+
+```{r}
+#grid search
+#create hyperparameter grid
+hyper_grid <- expand.grid(max_depth = seq(2, 5, 1),
+                          eta = seq(.2, .35, .01))
+whole_xgb_train_rmse <- NULL
+whole_xgb_test_rmse <- NULL
+
+for (j in 1:64) {
+  set.seed(123)
+  whole_xgb_untuned <- xgb.cv(
+    data = train[, 2:223],
+    label = train[, 231],
+    nrounds = 1000,
+    objective = "reg:squarederror",
+    early_stopping_rounds = 3,
+    nfold = 5,
+    max_depth = hyper_grid$max_depth[j],
+    eta = hyper_grid$eta[j]
+  )
+  
+  whole_xgb_train_rmse[j] <- whole_xgb_untuned$evaluation_log$train_rmse_mean[whole_xgb_untuned$best_iteration]
+  whole_xgb_test_rmse[j] <- whole_xgb_untuned$evaluation_log$test_rmse_mean[whole_xgb_untuned$best_iteration]
+  
+  cat(j, "\n")
+}
+
+#ideal hyperparamters
+hyper_grid[which.min(whole_xgb_test_rmse), ]
+```
+
+```{r}
+whole_xgb_tuned <-
+  xgboost(
+    data = train[, 2:223],
+    label = train[, 231],
+    nrounds = 1000,
+    objective = "reg:squarederror",
+    early_stopping_rounds = 3,
+    max_depth = 3,
+    eta = .2
+  )
+```
+
+```{r}
+whole_pred_xgb_1 <- predict(whole_xgb_tuned, test[, 2:223])
+
+whole_yhat_1 <- whole_pred_xgb_1
+whole_y <- test[, 231]
+postResample(whole_yhat_1, whole_y)
+
+whole_r_1 <- whole_y - whole_yhat_1
+
+hist(whole_r_1)
+
+# RMSE    Rsquared         MAE 
+# 105.5434858   0.8862732  76.3714203 
+new_whole_r_1 <- whole_r_1 - mean(whole_r_1)
+length(new_whole_r_1[new_whole_r_1<90&new_whole_r_1>-90])/length(new_whole_r_1)
+length(new_whole_r_1[new_whole_r_1<60&new_whole_r_1>-60])/length(new_whole_r_1)
+length(new_whole_r_1[new_whole_r_1<30&new_whole_r_1>-30])/length(new_whole_r_1)
+quantile(whole_r_1,  probs = c(10,25,75,90)/100)
+```
+
+
+```{r}
+#whole_r_log <- log(whole_y) - log(whole_yhat_1)
+#write.csv(whole_yhat_1,'xgbwhole_output.csv')
+#write.csv(whole_r_log,'xgb_log_redisuals.csv')
+```
+
+```{r}
+#write.csv(my_data_3,"output.csv")
+#saveRDS(my_data_2.rf_whole, file = "mymodel.rda")
+```
+

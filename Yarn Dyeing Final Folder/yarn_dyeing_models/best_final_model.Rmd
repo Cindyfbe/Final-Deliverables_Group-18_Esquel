@@ -1,0 +1,98 @@
+---
+title: "Untitled"
+author: "Zhao Yuedian"
+date: "2021/6/30"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(MASS)
+library(Metrics)
+library(randomForest)
+library(ROCR)
+library(fitdistrplus)
+library(data.table)
+```
+
+```{r}
+my_data_4 <- read_excel("my_data_dummies_1.xlsx")
+```
+
+```{r}
+my_data_4$DyestuffUsage <- as.numeric(my_data_4$DyestuffUsage)
+num_cols = c("Pre_Art_Actual_Time", "Dye_Art_Actual_Time", "Dye_Art_Sample_Time", "After_Art_Actual_Time", "After_Art_Sample_Time", "Fix_Art_Actual_Time", "Fix_Art_Sample_Time", "DyestuffUsage", "Dyeing_Ratio","Dye_weight","pure_dye","pure_after","pure_fix")
+for (col in num_cols) set(my_data_4, which(is.na(my_data_4[[col]])), col, 0)
+```
+
+```{r}
+set.seed(123)
+indices <- sample(1:nrow(my_data_4), size = 0.95 * nrow(my_data_4))
+train <- my_data_4[indices,]
+test <- my_data_4[-indices,]
+```
+
+```{r}
+my_data_2.rf_whole <- randomForest(Total_Actual_Time ~ DyestuffUsage+Dyeing_Ratio+Dye_Weight+Machine_Name_N123+Machine_Name_N124+Machine_Name_N125+Machine_Name_N127+Machine_Name_N128+Machine_Name_N129+Machine_Name_N130+Machine_Name_N131+Machine_Name_N132+Machine_Name_N133+Machine_Name_N134+Machine_Name_N210+Machine_Name_N211+Machine_Name_N212+Machine_Name_N213+Machine_Name_N214+Machine_Name_N215+Machine_Name_N216+Machine_Name_N219+Machine_Name_N220+Machine_Name_N221+Machine_Name_N222+Machine_Name_N223+Machine_Name_N224+Machine_Name_N308+Machine_Name_N309+Machine_Name_N310+Machine_Name_N409+Machine_Name_N414+Machine_Name_N415+Machine_Name_N416+Machine_Name_N511+Machine_Name_N512+Machine_Name_N513+Machine_Name_N514+Machine_Name_N515+Machine_Name_N516+Machine_Name_N517+Machine_Name_N518+Machine_Name_N519+Machine_Name_N520+Machine_Name_N521+Machine_Name_N522+Machine_Name_N523+Machine_Name_N524+Machine_Name_N525+Machine_Name_N605+Machine_Name_N606+Machine_Name_N607+Machine_Name_N608+Machine_Name_N610+Machine_Name_N611+Machine_Name_other+Colorist_1+Colorist_11+Colorist_12+Colorist_24+Colorist_27+Colorist_30+Colorist_302+Colorist_308+Colorist_335+Colorist_344+Colorist_351+Colorist_403+Colorist_47+Colorist_49+Colorist_5+Colorist_61+Colorist_7+Colorist_8+Colorist_9+Colorist_dongmf+Colorist_fangzf+Colorist_haoxl+Colorist_liushj+Colorist_LUOHAIF+Colorist_other+Colorist_xiexianf+Colorist_zengbo+Colorist_zhaoyp+Colorist_0+Is_Repair_0+Is_Repair_1+ColorOnly_BG+ColorOnly_BK+ColorOnly_BL+ColorOnly_BR+ColorOnly_GN+ColorOnly_GY+ColorOnly_KK+ColorOnly_NY+ColorOnly_OR+ColorOnly_PK+ColorOnly_RD+ColorOnly_RW+ColorOnly_TQ+ColorOnly_VL+ColorOnly_WH+ColorOnly_WHNY+ColorOnly_YW+ColorOnly_0+Remark_label_1+Remark_label_2+Remark_label_3+Remark_label_4a+Remark_label_4b+Remark_label_5+Remark_label_6a+Remark_label_6b+Remark_label_7a+Remark_label_7b+Colorist_Type_Baiban+Colorist_Type_Sanban+Colorist_Type_0+Fabric_suozhi+Fabric_zhenzhi+Fabric_0+Pre_Art_No_1202+Pre_Art_No_1204+Pre_Art_No_1209+Pre_Art_No_1211+Pre_Art_No_1215+Pre_Art_No_1221+Pre_Art_No_1227+Pre_Art_No_1229+Pre_Art_No_1301+Pre_Art_No_1308+Pre_Art_No_1313+Pre_Art_No_1429+Pre_Art_No_1502+Pre_Art_No_1504+Pre_Art_No_1715+Pre_Art_No_1727+Pre_Art_No_1741+Pre_Art_No_1801+Pre_Art_No_1802+Pre_Art_No_1804+Pre_Art_No_1815+Pre_Art_No_1821+Pre_Art_No_1827+Pre_Art_No_1829+Pre_Art_No_1901+Pre_Art_No_1902+Pre_Art_No_1904+Pre_Art_No_1908+Pre_Art_No_1915+Pre_Art_No_1929+Pre_Art_No_4008+Pre_Art_No_4041+Pre_Art_No_4141+Pre_Art_No_Other+Pre_Art_No_0+Dye_Art_No_2339+Dye_Art_No_2340+Dye_Art_No_2401+Dye_Art_No_2402+Dye_Art_No_2412+Dye_Art_No_2501+Dye_Art_No_2502+Dye_Art_No_2503+Dye_Art_No_2504+Dye_Art_No_2506+Dye_Art_No_2507+Dye_Art_No_2512+Dye_Art_No_2517+Dye_Art_No_2601+Dye_Art_No_2602+Dye_Art_No_2604+Dye_Art_No_2612+Dye_Art_No_2703+Dye_Art_No_2704+Dye_Art_No_2802+Dye_Art_No_Other+Dye_Art_No_0+After_Art_No_3011+After_Art_No_3012+After_Art_No_3013+After_Art_No_3014+After_Art_No_3015+After_Art_No_3016+After_Art_No_3017+After_Art_No_3018+After_Art_No_3034+After_Art_No_3036+After_Art_No_3043+After_Art_No_3049+After_Art_No_3211+After_Art_No_3212+After_Art_No_3213+After_Art_No_3216+After_Art_No_3234+After_Art_No_3249+After_Art_No_3302+After_Art_No_3402+After_Art_No_3403+After_Art_No_3514+After_Art_No_3515+After_Art_No_3518+After_Art_No_3617+After_Art_No_3618+After_Art_No_3621+After_Art_No_3622+After_Art_No_3623+After_Art_No_3805+After_Art_No_Other+After_Art_No_0+Fix_Art_No_3001+Fix_Art_No_3002+Fix_Art_No_3003+Fix_Art_No_3004+Fix_Art_No_3006+Fix_Art_No_3007+Fix_Art_No_3008+Fix_Art_No_3101+Fix_Art_No_3102+Fix_Art_No_3103+Fix_Art_No_3104+Fix_Art_No_0, data = train,ntree = 1000, na.action=na.roughfix) 
+
+```
+
+```{r}
+pred_rf_whole <- predict(my_data_2.rf_whole, newdata = test)
+
+rmse_rf_whole <- rmse(pred_rf_whole, test$Total_Actual_Time)
+rmse_rf_whole
+residuals_rf_whole = test$Total_Actual_Time - pred_rf_whole
+new_res <- residuals_rf_whole - mean(residuals_rf_whole)
+length(new_res[new_res<90&new_res>-90])/length(new_res)
+length(new_res[new_res<60&new_res>-60])/length(new_res)
+length(new_res[new_res<30&new_res>-30])/length(new_res)
+```
+
+```{r}
+saveRDS(my_data_2.rf_whole, file = "mymodel.rds")
+#my_model <- readRDS("mymodel.rds")
+#predict(my_model, newdata = new_data)
+write.csv(residuals_rf_whole,'mymodel_residuals.csv')
+residuals_rf_whole_log <- log(test$Total_Actual_Time) - log(pred_rf_whole)
+write.csv(residuals_rf_whole_log,'mymodel_log_residuals.csv')
+```
+
+```{r}
+bst <-  readRDS("mymodel.rds")
+user_input <- read_excel("new data.xlsx")
+time_pred <- predict(bst,newdata = user_input)
+time_pred
+
+```
+
+```{r}
+my_data_2.rf_nosample <- randomForest(Pre_Art_Actual_Time + pure_dye + pure_after + pure_fix  ~ DyestuffUsage+Dyeing_Ratio+Dye_Weight+Machine_Name_N123+Machine_Name_N124+Machine_Name_N125+Machine_Name_N127+Machine_Name_N128+Machine_Name_N129+Machine_Name_N130+Machine_Name_N131+Machine_Name_N132+Machine_Name_N133+Machine_Name_N134+Machine_Name_N210+Machine_Name_N211+Machine_Name_N212+Machine_Name_N213+Machine_Name_N214+Machine_Name_N215+Machine_Name_N216+Machine_Name_N219+Machine_Name_N220+Machine_Name_N221+Machine_Name_N222+Machine_Name_N223+Machine_Name_N224+Machine_Name_N308+Machine_Name_N309+Machine_Name_N310+Machine_Name_N409+Machine_Name_N414+Machine_Name_N415+Machine_Name_N416+Machine_Name_N511+Machine_Name_N512+Machine_Name_N513+Machine_Name_N514+Machine_Name_N515+Machine_Name_N516+Machine_Name_N517+Machine_Name_N518+Machine_Name_N519+Machine_Name_N520+Machine_Name_N521+Machine_Name_N522+Machine_Name_N523+Machine_Name_N524+Machine_Name_N525+Machine_Name_N605+Machine_Name_N606+Machine_Name_N607+Machine_Name_N608+Machine_Name_N610+Machine_Name_N611+Machine_Name_other+Colorist_1+Colorist_11+Colorist_12+Colorist_24+Colorist_27+Colorist_30+Colorist_302+Colorist_308+Colorist_335+Colorist_344+Colorist_351+Colorist_403+Colorist_47+Colorist_49+Colorist_5+Colorist_61+Colorist_7+Colorist_8+Colorist_9+Colorist_dongmf+Colorist_fangzf+Colorist_haoxl+Colorist_liushj+Colorist_LUOHAIF+Colorist_other+Colorist_xiexianf+Colorist_zengbo+Colorist_zhaoyp+Colorist_0+Is_Repair_0+Is_Repair_1+ColorOnly_BG+ColorOnly_BK+ColorOnly_BL+ColorOnly_BR+ColorOnly_GN+ColorOnly_GY+ColorOnly_KK+ColorOnly_NY+ColorOnly_OR+ColorOnly_PK+ColorOnly_RD+ColorOnly_RW+ColorOnly_TQ+ColorOnly_VL+ColorOnly_WH+ColorOnly_WHNY+ColorOnly_YW+ColorOnly_0+Remark_label_1+Remark_label_2+Remark_label_3+Remark_label_4a+Remark_label_4b+Remark_label_5+Remark_label_6a+Remark_label_6b+Remark_label_7a+Remark_label_7b+Colorist_Type_Baiban+Colorist_Type_Sanban+Colorist_Type_0+Fabric_suozhi+Fabric_zhenzhi+Fabric_0+Pre_Art_No_1202+Pre_Art_No_1204+Pre_Art_No_1209+Pre_Art_No_1211+Pre_Art_No_1215+Pre_Art_No_1221+Pre_Art_No_1227+Pre_Art_No_1229+Pre_Art_No_1301+Pre_Art_No_1308+Pre_Art_No_1313+Pre_Art_No_1429+Pre_Art_No_1502+Pre_Art_No_1504+Pre_Art_No_1715+Pre_Art_No_1727+Pre_Art_No_1741+Pre_Art_No_1801+Pre_Art_No_1802+Pre_Art_No_1804+Pre_Art_No_1815+Pre_Art_No_1821+Pre_Art_No_1827+Pre_Art_No_1829+Pre_Art_No_1901+Pre_Art_No_1902+Pre_Art_No_1904+Pre_Art_No_1908+Pre_Art_No_1915+Pre_Art_No_1929+Pre_Art_No_4008+Pre_Art_No_4041+Pre_Art_No_4141+Pre_Art_No_Other+Pre_Art_No_0+Dye_Art_No_2339+Dye_Art_No_2340+Dye_Art_No_2401+Dye_Art_No_2402+Dye_Art_No_2412+Dye_Art_No_2501+Dye_Art_No_2502+Dye_Art_No_2503+Dye_Art_No_2504+Dye_Art_No_2506+Dye_Art_No_2507+Dye_Art_No_2512+Dye_Art_No_2517+Dye_Art_No_2601+Dye_Art_No_2602+Dye_Art_No_2604+Dye_Art_No_2612+Dye_Art_No_2703+Dye_Art_No_2704+Dye_Art_No_2802+Dye_Art_No_Other+Dye_Art_No_0+After_Art_No_3011+After_Art_No_3012+After_Art_No_3013+After_Art_No_3014+After_Art_No_3015+After_Art_No_3016+After_Art_No_3017+After_Art_No_3018+After_Art_No_3034+After_Art_No_3036+After_Art_No_3043+After_Art_No_3049+After_Art_No_3211+After_Art_No_3212+After_Art_No_3213+After_Art_No_3216+After_Art_No_3234+After_Art_No_3249+After_Art_No_3302+After_Art_No_3402+After_Art_No_3403+After_Art_No_3514+After_Art_No_3515+After_Art_No_3518+After_Art_No_3617+After_Art_No_3618+After_Art_No_3621+After_Art_No_3622+After_Art_No_3623+After_Art_No_3805+After_Art_No_Other+After_Art_No_0+Fix_Art_No_3001+Fix_Art_No_3002+Fix_Art_No_3003+Fix_Art_No_3004+Fix_Art_No_3006+Fix_Art_No_3007+Fix_Art_No_3008+Fix_Art_No_3101+Fix_Art_No_3102+Fix_Art_No_3103+Fix_Art_No_3104+Fix_Art_No_0, data = train,ntree = 1000, na.action=na.roughfix) 
+
+```
+
+```{r}
+pred_rf_nosample<- predict(my_data_2.rf_nosample, newdata = test)
+
+rmse_rf_nosample <- rmse(pred_rf_nosample, test$Pre_Art_Actual_Time + test$pure_dye + test$pure_after + test$pure_fix)
+rmse_rf_nosample
+residuals_rf_nosample = test$Pre_Art_Actual_Time + test$pure_dye + test$pure_after + test$pure_fix - pred_rf_nosample
+new_res <- residuals_rf_nosample - mean(residuals_rf_nosample)
+length(new_res[new_res<90&new_res>-90])/length(new_res)
+length(new_res[new_res<60&new_res>-60])/length(new_res)
+length(new_res[new_res<30&new_res>-30])/length(new_res)
+```
+
+```{r}
+saveRDS(my_data_2.rf_nosample, file = "mymodel_v2.rds")
+#my_model <- readRDS("mymodel.rds")
+#predict(my_model, newdata = new_data)
+write.csv(residuals_rf_nosample,'mymodel_residuals_v2.csv')
+residuals_rf_nosample_log <- log(test$Pre_Art_Actual_Time + test$pure_dye + test$pure_after + test$pure_fix) - log(pred_rf_nosample)
+write.csv(residuals_rf_whole_log,'mymodel_log_residuals_v2.csv')
+```
+
